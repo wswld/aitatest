@@ -47,15 +47,10 @@ function getAuthURL() {
 
 function listLabels(auth) {
   var gmail = google.gmail('v1');
-  r =  gmail.users.labels.list({
+  return gmail.users.labels.list({
     auth: auth,
     userId: 'me'
-  });
-  return r
-}
-
-
-function getList(err, response) {
+  }, function(err, response) {
     if (err) {
       console.log('The API returned an error: ' + err);
       return;
@@ -70,7 +65,9 @@ function getList(err, response) {
         console.log('- %s', label.name);
       }
     }
-  }
+  });
+}
+
 
 app.listen(8080, function () {
   console.log('UP AND RUNNING')
