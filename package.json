@@ -10,7 +10,7 @@
     "url": "https://github.com/GoogleCloudPlatform/nodejs-docs-samples.git"
   },
   "engines": {
-    "node": ">=4.3.2"
+    "node": ">=8.5"
   },
   "scripts": {
     "deploy": "gcloud app deploy",
@@ -22,6 +22,7 @@
     "e2e-test": "samples test deploy"
   },
   "dependencies": {
+    "airport-codes": "^1.0.2",
     "express": "4.15.4",
     "google-auth-library": "^0.11.0",
     "googleapis": "^22.2.0"
