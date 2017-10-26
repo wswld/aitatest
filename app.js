@@ -1,4 +1,5 @@
 const fs = require('fs')
+const format = require('util').format;
 const readline = require('readline')
 const google = require('googleapis')
 const googleAuth = require('google-auth-library')
@@ -7,6 +8,7 @@ const express = require('express')
 const app = express()
 const airport_codes = require('airport-codes').toJSON();
 const base64 = require('base64-js');
+const Multer = require('multer');
 
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 const TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
@@ -22,6 +24,26 @@ const auth = new googleAuth()
 const oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl)
 const gmail = google.gmail('v1')
 
+const Storage = require('@google-cloud/storage');
+const storage = Storage();
+
+String.prototype.format = function () {
+        var args = [].slice.call(arguments);
+        return this.replace(/(\{\d+\})/g, function (a){
+            return args[+(a.substr(1,a.length-2))||0];
+        });
+};
+
+const multer = Multer({
+  storage: Multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // no larger than 5mb, you can change as needed.
+  }
+});
+
+const bucket = storage.bucket(process.env.GCLOUD_STORAGE_BUCKET);
+
+
 app.get('/', (req, res) => {
   res.redirect(getAuthURL(oauth2Client))
 })
@@ -31,9 +53,8 @@ app.get('/auth/google/callback', async (req, res) => {
   const code = query.code
   await setToken(code)
   const messages = await getMessages()
-  await getAttachment(messages) 
-  console.log(messages)
-  res.send(messages)
+  await getAttachment(messages)
+  res.send('Done')
 })
 
 function getAuthURL () {
@@ -85,7 +106,7 @@ function getAttachment (messages) {
         if (err) {
           throw new Error('The API returned an error: ' + err)
         }
-        response.payload.parts.map(function(att) {
+        response.payload.parts.map(function(att, ololo) {
           if (att.mimeType=='application/pdf') {
             gmail.users.messages.attachments.get({
               messageId: message.id,
@@ -96,15 +117,24 @@ function getAttachment (messages) {
               if (err) {
                 throw new Error('The API returned an error: ' + err)
               }
-              fs.writeFileSync(att.filename, base64.toByteArray(response.data));
+              const blob = bucket.file(att.filename);
+              const blobStream = blob.createWriteStream();
+
+              blobStream.on('error', (err) => {
+                console.log(err)
+              });
+
+              // blobStream.on('finish', () => {
+              //   format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
+              // });
+              blobStream.end(base64.toByteArray(response.data));
             }
             )
-
           }
         })
       })
     })
-
+    resolve()
 })};
 
 app.listen(8080, function () {
