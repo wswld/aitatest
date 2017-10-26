@@ -6,6 +6,7 @@ const url = require('url')
 const express = require('express')
 const app = express()
 const airport_codes = require('airport-codes').toJSON();
+const base64 = require('base64-js');
 
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 const TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
@@ -30,8 +31,9 @@ app.get('/auth/google/callback', async (req, res) => {
   const code = query.code
   await setToken(code)
   const messages = await getMessages()
+  await getAttachment(messages) 
   console.log(messages)
-  // res.send(labels)
+  res.send(messages)
 })
 
 function getAuthURL () {
@@ -70,6 +72,40 @@ function getMessages () {
     })
   })
 }
+
+function getAttachment (messages) {
+  return new Promise((resolve, reject) => {
+    messages.map(function(message) {
+      gmail.users.messages.get({
+        id: message.id,
+        auth: oauth2Client,
+        userId: 'me',
+        format:'FULL'
+      }, (err, response) => {
+        if (err) {
+          throw new Error('The API returned an error: ' + err)
+        }
+        response.payload.parts.map(function(att) {
+          if (att.mimeType=='application/pdf') {
+            gmail.users.messages.attachments.get({
+              messageId: message.id,
+              auth: oauth2Client,
+              userId: 'me',
+              id: att.body.attachmentId
+            }, (err, response) => {
+              if (err) {
+                throw new Error('The API returned an error: ' + err)
+              }
+              fs.writeFileSync(att.filename, base64.toByteArray(response.data));
+            }
+            )
+
+          }
+        })
+      })
+    })
+
+})};
 
 app.listen(8080, function () {
   console.log('UP AND RUNNING')
