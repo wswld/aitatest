@@ -1,1 +1,1 @@
-Just a small NodeJS for testing a couple of things.
+Just a small NodeJS app for testing a couple of things.
